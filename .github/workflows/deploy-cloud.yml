@@ -41,7 +41,7 @@ jobs:
     name: Build and deploy Next.js to Cloudflare Workers
     runs-on: ubuntu-latest
     needs: deploy-backend
-    if: ${{ always() && vars.HF_SPACE != '' }}
+    if: ${{ vars.HF_SPACE != '' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
