@@ -1,44 +1,67 @@
-# Cloud deployment (no Vercel)
+# Free cloud deployment (no Vercel, no paid Hugging Face Docker)
 
-This repository deploys the Next.js frontend to Cloudflare Workers and the FastAPI backend to a Hugging Face Docker Space. GitHub Actions runs both deployments after pushes to `main`.
+The application is deployed as:
+- **Frontend:** Cloudflare Workers (Next.js via OpenNext).
+- **Backend:** Render free Docker web service, built from the root `Dockerfile`.
+- **Database and file storage:** Supabase free project (PostgreSQL + private Storage bucket).
+- **Automation:** GitHub Actions triggers Render and deploys the Cloudflare Worker on pushes to `main`.
 
-## 1. Create the Hugging Face Space
+## 1. Create the Render backend
 
-1. Create a **Docker** Space named `patentvision-ai` (or another name you choose).
-2. In the Space settings, add:
-   - Secret `PV_SECRET_KEY`: a random secret of at least 32 characters.
-   - Variable `PV_CORS_ORIGINS`: the exact Cloudflare Worker origin, e.g. `https://patentvision-ai.<your-workers-subdomain>.workers.dev`.
-   - Variable `PV_STORAGE_BACKEND`: `supabase` for persistent uploads.
-   - Secret `PV_SUPABASE_URL`: your Supabase project URL.
-   - Secret `PV_SUPABASE_SERVICE_KEY`: your Supabase service-role key.
-   - Secret `DATABASE_URL`: a persistent PostgreSQL connection string (Supabase or Neon).
-3. Create a private Supabase Storage bucket named `patentvision-files` (or set `PV_SUPABASE_BUCKET` to your bucket name).
+1. Sign in at https://render.com/.
+2. Choose **New → Web Service** and connect `pradeep14012004/PatentVision-Ai`.
+3. Select branch `main`, runtime **Docker**, Dockerfile path `./Dockerfile`, and plan **Free**.
+4. Name the service `patentvision-api`, then create it.
+5. In the service settings, copy its public URL (for example `https://patentvision-api.onrender.com`).
+6. In Settings, create a **Deploy Hook** and copy its URL.
 
-SQLite and local file storage in a hosted Space are not durable across rebuilds/restarts. Configure PostgreSQL and Supabase Storage before using this for real project data.
+The free service sleeps after 15 minutes of inactivity and wakes on the next request (often around one minute). Its local filesystem is ephemeral. Do not use local SQLite or local file storage for user data.
 
-## 2. Configure GitHub Actions
+## 2. Configure persistent data using Supabase
+
+1. Create a free project at https://supabase.com/.
+2. Create a **private** Storage bucket named `patentvision-files`.
+3. In Project Settings → API, copy the Project URL and service-role key.
+4. In Project Settings → Database, copy the PostgreSQL connection string (URI). Use the pooler connection if the direct connection is not reachable.
+
+Set these environment variables in Render → Environment:
+- `PV_SECRET_KEY`: a long random secret (32+ characters).
+- `PV_DATABASE_URL`: the Supabase PostgreSQL connection string.
+- `PV_STORAGE_BACKEND`: `supabase`.
+- `PV_SUPABASE_URL`: Supabase Project URL.
+- `PV_SUPABASE_SERVICE_KEY`: Supabase service-role key.
+- `PV_SUPABASE_BUCKET`: `patentvision-files`.
+- `PV_CORS_ORIGINS`: initially leave until the Cloudflare Worker URL is known; then set it to the exact frontend origin, without a trailing slash.
+
+Keep service-role keys private. Never put them in frontend environment variables.
+
+## 3. Configure GitHub Actions
 
 In **Repository → Settings → Secrets and variables → Actions**, add:
 
-**Repository variables**
-- `HF_SPACE`: Hugging Face Space identifier, exactly `username/space-name`.
-- `CLOUDFLARE_ACCOUNT_ID`: Cloudflare account ID.
+**Repository variable**
+- `CLOUDFLARE_ACCOUNT_ID`: your Cloudflare account ID.
+- `RENDER_API_URL`: your Render service URL, e.g. `https://patentvision-api.onrender.com` (no `/api` suffix).
 
 **Repository secrets**
-- `HF_TOKEN`: Hugging Face token with write access to the Space.
-- `CLOUDFLARE_API_TOKEN`: Cloudflare API token with Workers Scripts edit permission.
+- `CLOUDFLARE_API_TOKEN`: Cloudflare API token with Workers Scripts Edit permission.
+- `RENDER_DEPLOY_HOOK`: Render deploy hook URL.
 
-The Cloudflare Worker name is `patentvision-ai`. Its public URL will be `https://patentvision-ai.<your-workers-subdomain>.workers.dev`. Add that origin to `PV_CORS_ORIGINS` in the Space settings (no trailing slash).
+The workflow deploys the backend by triggering Render's deploy hook and builds the frontend with `NEXT_PUBLIC_API_URL=<RENDER_API_URL>/api`.
 
-## 3. Deploy
+## 4. Deploy and configure CORS
 
-Push to `main`, or open **Actions → Deploy PatentVision AI → Run workflow**. The workflow pushes the repository Docker app to Hugging Face, builds the Next.js app with the Space API URL, and deploys the Worker.
+Push to `main`, or open **Actions → Deploy PatentVision AI → Run workflow**.
 
-Backend API base URL is `https://<username>-<space-name>.hf.space/api`.
+After the first Cloudflare deployment, the Worker URL is:
+`https://patentvision-ai.<your-workers-subdomain>.workers.dev`
 
-## 4. Verify
+Set Render's `PV_CORS_ORIGINS` to that exact origin, save, and redeploy the backend.
 
-- Backend health: `https://<username>-<space-name>.hf.space/health`
-- Frontend: `https://patentvision-ai.<your-workers-subdomain>.workers.dev`
+## 5. Verify
 
-Wait for the Space to finish its first Docker build before testing login and uploads. Keep the HF Space and Cloudflare Worker public if the app is intended for public access.
+- Backend health: `<RENDER_API_URL>/health`
+- Backend API docs: `<RENDER_API_URL>/docs`
+- Frontend: Cloudflare Worker URL shown after deployment.
+
+Free-tier caveats: Render free services sleep after 15 minutes idle and wake slowly; Render's local disk is temporary; free Render Postgres expires after 30 days. Supabase is used here for persistent database and uploaded files. Review free-tier quotas and limits before relying on this for production data.
