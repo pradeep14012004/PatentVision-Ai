@@ -34,10 +34,12 @@ jobs:
           token = os.environ["HF_TOKEN"]
           api = HfApi(token=token)
           username = api.whoami()["name"]
-          backend_name = os.environ.get("HF_BACKEND_SPACE", "patentvision-backend").strip()
+          backend_name = (os.environ.get("HF_BACKEND_SPACE") or "patentvision-backend").strip()
           frontend_name = "patentvision-frontend"
           if not username:
-              raise SystemExit("Set repository variable HF_USERNAME to your Hugging Face username.")
+              raise SystemExit("Could not determine Hugging Face username from HF_TOKEN. Check token permissions.")
+          if not backend_name:
+              backend_name = "patentvision-backend"
           backend_id = f"{username}/{backend_name}"
           frontend_id = f"{username}/{frontend_name}"
 
