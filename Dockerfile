@@ -37,5 +37,5 @@ COPY --chown=user:user backend/alembic.ini ./alembic.ini
 RUN mkdir -p /home/user/app/storage
 
 # Run migrations then start the server. Single worker: job slots and rate limiter are in-process.
-EXPOSE 8000
+EXPOSE 7860
 CMD ["sh", "-c", "python -c \"import os; from app.core.config import get_settings; from app.core.database import normalize_url; u = normalize_url(get_settings().database_url); print('DB target:', u.split('@')[-1] if '@' in u else u)\" && (alembic upgrade head || echo 'WARNING: Alembic migration failed, continuing startup...') && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
