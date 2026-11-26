@@ -1,7 +1,7 @@
-# PatentVision AI – FastAPI backend for Render (and compatible hosts).
-# Render injects PORT; the app listens on ${PORT:-8000}.
+# PatentVision AI – FastAPI backend for Hugging Face Docker Spaces.
+# Hugging Face Docker Spaces serve on port 7860 by default.
 # u2netp (4.6 MB ONNX) is pre-baked so cold starts need no runtime download.
-# Peak RSS ~472 MB with NUMBA_DISABLE_JIT=1 and OMP_NUM_THREADS=1 — fits Render free (512 MB).
+# Single-worker demo configuration; local SQLite and file storage are temporary.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -38,4 +38,4 @@ RUN mkdir -p /home/user/app/storage
 
 # Run migrations then start the server. Single worker: job slots and rate limiter are in-process.
 EXPOSE 7860
-CMD ["sh", "-c", "python -c \"import os; from app.core.config import get_settings; from app.core.database import normalize_url; u = normalize_url(get_settings().database_url); print('DB target:', u.split('@')[-1] if '@' in u else u)\" && (alembic upgrade head || echo 'WARNING: Alembic migration failed, continuing startup...') && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "python -c \"import os; from app.core.config import get_settings; from app.core.database import normalize_url; u = normalize_url(get_settings().database_url); print('DB target:', u.split('@')[-1] if '@' in u else u)\" && (alembic upgrade head || echo 'WARNING: Alembic migration failed, continuing startup...') && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
