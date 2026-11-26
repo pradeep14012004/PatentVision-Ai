@@ -80,31 +80,27 @@ npm run dev                     # proxies /api/* to http://127.0.0.1:8000
 
 ---
 
-## Free Cloud Deployment (Hugging Face Spaces + Vercel Hobby)
+## Free Cloud Demo Deployment (GitHub Actions + Hugging Face)
 
-Because v2.1 runs `rembg` (`u2net.onnx`) + `onnxruntime` + OpenCV, host the Docker backend on **Hugging Face Spaces (16 GB RAM free Docker Space)** and the Next.js frontend on **Vercel Hobby**.
+The recommended demo deployment uses two Hugging Face Spaces:
+- **Backend:** Docker Space running FastAPI, OpenCV and rembg.
+- **Frontend:** Gradio Space calling the backend API.
+- **Database and files:** local SQLite and local filesystem inside the backend container.
 
-### 1. Backend on Hugging Face Spaces (Docker SDK)
-1. Create a new Space on [huggingface.co/new-space](https://huggingface.co/new-space) selecting **Docker** → **Blank** (`CPU basic · 2 vCPU · 16 GB · FREE`).
-2. Push this repository to the Space git remote (root [Dockerfile](Dockerfile) builds only the backend and pre-bakes `u2net.onnx`):
-   ```bash
-   git remote add space https://huggingface.co/spaces/<your-hf-username>/<your-space-name>
-   git push space main
-   ```
-3. In **Space → Settings → Variables and secrets**, set:
-   - `PV_SECRET_KEY` *(Secret)*: a long random string (32+ chars)
-   - `PV_CORS_ORIGINS` *(Variable)*: your Vercel URL, e.g. `https://patentvision-ai.vercel.app`
-   - `PV_CORS_ORIGIN_REGEX` *(Variable, optional)*: `^https://.*\.vercel\.app$` (allows Vercel preview URLs)
-   - **Recommended for persistence across Space restarts** *(Secrets)*: Free [Neon](https://neon.tech) Postgres `DATABASE_URL` + storage `BLOB_READ_WRITE_TOKEN` (without external DB/storage, Space sleep/rebuilds reset local SQLite files).
+> **Important:** Hugging Face free Spaces have ephemeral local storage. Accounts, projects, uploaded images, generated drawings, signatures and PDFs can be lost when the Space restarts or rebuilds. This is a demonstration deployment, not suitable for production records.
 
-### 2. Frontend on Vercel Hobby
-1. Import `Adil-2006/PatentVision-Ai` on [vercel.com/new](https://vercel.com/new).
-2. Set **Root Directory** to `frontend` *(important: do not deploy from repo root, because `rembg` exceeds serverless bundle limits)*.
-3. Add Environment Variable:
-   - `NEXT_PUBLIC_API_URL` = `https://<your-hf-username>-<your-space-name>.hf.space`
-4. Deploy. The Space URL serves `/` and `/health` (`{"status":"ok"}`) and keeps `u2net.onnx` warm while awake.
+### One-time setup
+1. Create a Hugging Face **write** access token at [Hugging Face Settings → Access Tokens](https://huggingface.co/settings/tokens).
+2. In GitHub, open **Settings → Secrets and variables → Actions → Secrets** and add/update `HF_TOKEN` with that token.
+3. Push to `main`, or manually run **Actions → Deploy PatentVision AI to Hugging Face Spaces → Run workflow**.
+4. The workflow creates/updates `<your-hf-username>/patentvision-backend` and `<your-hf-username>/patentvision-frontend`, configures their connection, and uploads the application.
 
----
+### Demo URLs
+- Backend: `https://<username>-patentvision-backend.hf.space`
+- API docs: `https://<username>-patentvision-backend.hf.space/docs`
+- Gradio frontend: `https://<username>-patentvision-frontend.hf.space`
+
+The workflow uses the Hugging Face Hub API to create Spaces and upload files. See [Hugging Face Hub API](https://huggingface.co/docs/huggingface_hub/en/package_reference/hf_api).
 
 ## Running Automated Tests
 
